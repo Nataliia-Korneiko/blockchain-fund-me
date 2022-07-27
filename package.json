@@ -1,0 +1,23 @@
+{
+  "name": "blockchain-fund-me",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nataliia-Korneiko/blockchain-fund-me.git"
+  },
+  "keywords": [],
+  "author": "Nataliia Korneiko <korneyko_ns@ukr.net>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nataliia-Korneiko/blockchain-fund-me/issues"
+  },
+  "homepage": "https://github.com/Nataliia-Korneiko/blockchain-fund-me#readme",
+  "dependencies": {
+    "@chainlink/contracts": "^0.4.1"
+  }
+}
