@@ -1,48 +1,83 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
+import './PriceConverter.sol';
+
+error NotOwner();
 
 contract FundMe {
-	uint256 public minimumUsd = 50 * 1e18; // 1 * 10 ** 18
+	using PriceConverter for uint256;
+
+	uint256 public constant MINIMUM_USD = 50 * 1e18; // 1 * 10 ** 18
+	// 21,415 gas - constant
+	// 23,515 gas - non-constant
+	// 21,415 * 141000000000 = $9,058545
+	// 23,515 * 141000000000 = $9,946845
 
 	address[] public funders;
 	mapping(address => uint256) public addressToAmountFunded;
 
+	address public immutable i_owner; // immutable
+
+	// 21,508 gas - immutable
+	// 23,644 gas - non-immutable
+
+	constructor() {
+		i_owner = msg.sender;
+	}
+
 	// msg.value (uint): number of wei sent with the message
 	// msg.sender (address): sender of the message (current call)
 	function fund() public payable {
+		// getConversionRate(msg.value);
+		// msg.value.getConversionRate();
+
 		// require(msg.value > 1e18, "You need to spend more ETH!"); // 1e18 = 1 * 10 ** 18 = 1000000000000000000
-		require(getConversionRate(msg.value) >= minimumUsd, 'You need to spend more ETH!'); // 1e18 = 1 * 10 ** 18 = 1000000000000000000
+		require(msg.value.getConversionRate() >= MINIMUM_USD, 'You need to spend more ETH!'); // 1e18 = 1 * 10 ** 18 = 1000000000000000000
 		funders.push(msg.sender);
 		addressToAmountFunded[msg.sender] = msg.value;
 	}
 
-	function getPrice() public view returns (uint256) {
-		// ABI
-		// Address 0x8A753747A1Fa494EC906cE90E9f37563A8AF630e
-		AggregatorV3Interface priceFeed = AggregatorV3Interface(
-			0x8A753747A1Fa494EC906cE90E9f37563A8AF630e
-		);
+	function withdraw() public onlyOwner {
+		// starting index
+		// ending index
+		// step amount
+		for (uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++) {
+			address funder = funders[funderIndex];
+			addressToAmountFunded[funder] = 0;
+		}
 
-		// (uint80 roundID, int price, uint startedAt, uint timeStamp, uint80 answeredInRound) = priceFeed.latestRoundData();
-		(, int256 price, , , ) = priceFeed.latestRoundData();
+		// reset the array
+		funders = new address[](0);
 
-		// ETH in terms of USD
-		// 3000.00000000
-		return uint256(price * 1e10); // 1**10 = 10000000000
+		// msg.sender = address
+		// payable(msg.sender) = payable address
+
+		// transfer
+		// payable(msg.sender).transfer(address(this).balance);
+
+		// send
+		// bool sendSuccess = payable(msg.sender).send(address(this).balance);
+		// require(sendSuccess, "Send failed");
+
+		// call
+		(bool callSuccess, ) = payable(msg.sender).call{ value: address(this).balance }('');
+		require(callSuccess, 'Call failed');
 	}
 
-	function getVersion() public view returns (uint256) {
-		AggregatorV3Interface priceFeed = AggregatorV3Interface(
-			0x8A753747A1Fa494EC906cE90E9f37563A8AF630e
-		);
-		return priceFeed.version();
+	modifier onlyOwner() {
+		// require(msg.sender == i_owner, 'Sender is not owner!'); // 1
+		if (msg.sender != i_owner) {
+			revert NotOwner();
+		}
+		_; // 2 (all code in withdraw())
 	}
 
-	function getConversionRate(uint256 ethAmount) public view returns (uint256) {
-		uint256 ethPrice = getPrice();
-		uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1000000000000000000; // 1e18;
-		return ethAmountInUsd;
+	fallback() external payable {
+		fund();
+	}
+
+	receive() external payable {
+		fund();
 	}
 }
